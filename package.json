@@ -1,0 +1,38 @@
+{
+  "name": "eclipse-v1",
+  "version": "1.0.0",
+  "description": "ECLIPSE V1 - WhatsApp Multi-Device bot paired and managed through Telegram. Owner: MR. RYAN",
+  "main": "index.js",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node index.js"
+  },
+  "keywords": [
+    "whatsapp",
+    "baileys",
+    "telegram",
+    "bot",
+    "termux"
+  ],
+  "author": "MR. RYAN",
+  "license": "MIT",
+  "dependencies": {
+    "@distube/ytdl-core": "^4.16.12",
+    "@hapi/boom": "^10.0.1",
+    "@whiskeysockets/baileys": "^6.7.9",
+    "axios": "^1.7.7",
+    "dotenv": "^16.4.5",
+    "file-type": "^16.5.4",
+    "fluent-ffmpeg": "^2.1.3",
+    "form-data": "^4.0.1",
+    "lowdb": "^1.0.0",
+    "node-fetch": "^2.7.0",
+    "node-telegram-bot-api": "^0.66.0",
+    "pino": "^9.5.0",
+    "qrcode-terminal": "^0.12.0",
+    "sharp": "^0.33.5"
+  }
+}
