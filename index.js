@@ -1,43 +1,83 @@
 'use strict';
 
-const fs = require('fs');
-const config = require('./config/config');
-const logger = require('./src/utils/logger');
-const registry = require('./src/commands');
-const media = require('./src/utils/media');
-const { startTelegram, notifier } = require('./src/telegram/bot');
-const { restoreSessions } = require('./src/whatsapp/connection');
+const logger = require('../utils/logger');
 
-process.on('uncaughtException', (error) => {
-  logger.error('Uncaught exception:', error.message);
-});
+const MODULES = [
+  './misc',
+  './group',
+  './fun',
+  './download',
+  './user',
+  './sticker',
+  './vars',
+  './textmaker',
+  './video',
+  './other',
+];
 
-process.on('unhandledRejection', (reason) => {
-  logger.error('Unhandled rejection:', reason instanceof Error ? reason.message : String(reason));
-});
+const commands = new Map(); // name -> command
+const aliases = new Map();  // alias -> name
 
-async function main() {
-  for (const dir of [config.paths.sessions, config.paths.temp]) {
-    fs.mkdirSync(dir, { recursive: true });
+function register(command) {
+  if (!command || !command.name || typeof command.handler !== 'function') {
+    throw new Error(`Invalid command definition: ${JSON.stringify(command?.name || command)}`);
   }
-
-  logger.info(`Booting ${config.botName} (owner: ${config.ownerName})`);
-  registry.load();
-
-  await restoreSessions((telegramId) => notifier(telegramId));
-
-  try {
-    await startTelegram();
-  } catch (error) {
-    logger.error('Telegram bot could not start:', error.message);
-    logger.warn('WhatsApp sessions still run, but pairing requires a valid TELEGRAM_BOT_TOKEN.');
+  if (commands.has(command.name) || aliases.has(command.name)) {
+    throw new Error(`Duplicate command name: ${command.name}`);
   }
-
-  setInterval(() => media.cleanTempDir().catch(() => {}), 15 * 60 * 1000).unref?.();
-  logger.info(`${config.botName} is ready.`);
+  commands.set(command.name, {
+    category: 'misc',
+    permission: 'user',
+    description: '',
+    usage: `.${command.name}`,
+    aliases: [],
+    ...command,
+  });
+  for (const alias of command.aliases || []) {
+    if (commands.has(alias) || aliases.has(alias)) {
+      throw new Error(`Duplicate command alias: ${alias}`);
+    }
+    aliases.set(alias, command.name);
+  }
 }
 
-main().catch((error) => {
-  logger.error('Fatal startup error:', error.message);
-  process.exit(1);
-});
+function load() {
+  if (commands.size) return;
+  for (const modulePath of MODULES) {
+    // eslint-disable-next-line global-require, import/no-dynamic-require
+    const list = require(modulePath);
+    for (const command of list) register(command);
+  }
+  // Optional user plugins.
+  try {
+    // eslint-disable-next-line global-require
+    const plugins = require('../plugins');
+    for (const command of plugins.load()) register(command);
+  } catch (error) {
+    logger.warn('Plugin loading skipped:', error.message);
+  }
+  logger.info(`Command registry loaded: ${commands.size} commands`);
+}
+
+function find(name) {
+  load();
+  const key = String(name || '').toLowerCase();
+  if (commands.has(key)) return commands.get(key);
+  if (aliases.has(key)) return commands.get(aliases.get(key));
+  return null;
+}
+
+function all() {
+  load();
+  return [...commands.values()];
+}
+
+function byCategory(category) {
+  return all().filter((command) => command.category === category);
+}
+
+function categories() {
+  return [...new Set(all().map((command) => command.category))];
+}
+
+module.exports = { register, load, find, all, byCategory, categories };
